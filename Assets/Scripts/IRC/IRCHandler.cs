@@ -16,8 +16,6 @@ public class IRCHandler {
         // Get host related information.
         hostEntry = Dns.GetHostEntry(server);
 
-        Debug.Log("Cycling");
-
         // Loop through the AddressList to obtain the supported AddressFamily. This is to avoid
         // an exception that occurs when the host IP Address is not compatible with the address family
         // (typical in the IPv6 case).
@@ -44,12 +42,10 @@ public class IRCHandler {
 
     public static Socket ConnectToTwitch(string server, int port, string username, string auth)
     {
-        Debug.Log("Start Connection");
         Socket socket = ConnectSocket(server, port);
-        Debug.Log("Initial Connection");
         SendSocket(socket, "PASS " + auth + "\n");
         SendSocket(socket, "NICK " + username + "\n");
-
+        SendSocket(socket, "CAP REQ :twitch.tv/tags\n");
         return socket;
 
     }
@@ -82,7 +78,7 @@ public class IRCHandler {
             numBytes = socket.Receive(bytes, bytes.Length, 0);
            
             message += System.Text.Encoding.ASCII.GetString(bytes);
-        } while (!message.Contains("\n"));
+        } while (!message.Contains("\n") || numBytes == 0);
 
         string[] messageSplit = message.Split('\n');
         string returnMessage = messageSplit[0];

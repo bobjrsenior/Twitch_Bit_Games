@@ -2,30 +2,54 @@
 using System.Collections;
 using System.Net.Sockets;
 using System.Threading;
+using System.Collections.Generic;
 
 public class IrcTest : MonoBehaviour {
 
     private Socket socket = null;
 
-	// Use this for initialization
-	void Start () {
+    private bool continueSock = true;
 
-        Thread sockThread = new Thread(new ThreadStart(StartSocket));
+    private Thread sockThread;
+
+    private List<string> messages = new List<string>();
+
+    private bool lockList = false;
+
+    // Use this for initialization
+    void Start () {
+
+        sockThread = new Thread(new ThreadStart(StartSocket));
         sockThread.Start();
 
 	}
 	
 	// Update is called once per frame
 	void Update () {
-	
-	}
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            continueSock = false;
+            sockThread.Abort();
+
+        }
+
+        if (!lockList)
+        {
+            lockList = true;
+            if(messages.Count > 0)
+            {
+                print(messages[0]);
+                messages.RemoveAt(0);
+            }
+            lockList = false;
+        }
+
+    }
 
     private void StartSocket()
     {
-        print("GG");
-        Socket socket = IRCHandler.ConnectToTwitch("irc.chat.twitch.tv", 6667, "botjrsenior", "oauth:");
-        print("Connected to Socket");
-        // IRCHandler.SendSocket(socket, "JOIN #botjrsenior\n");
+        socket = IRCHandler.ConnectToTwitch("irc.chat.twitch.tv", 6667, "botjrsenior", "oauth:");
+        IRCHandler.SendSocket(socket, "JOIN #botjrsenior\n");
 
         int counter = 0;
         do
@@ -33,13 +57,16 @@ public class IrcTest : MonoBehaviour {
             counter++;
 
             string message = IRCHandler.ReadSocket(socket);
-            if (message.Trim().Length > 1)
+            if (message.Trim().Length > 0)
             {
-                print(message);
+                while (lockList) { Thread.Sleep(10); }
+                lockList = true;
+                messages.Add(message);
+                lockList = false;
             }
             Thread.Sleep(100);
 
-        } while (counter < 10);
+        } while (continueSock);
 
 
         socket.Close();
@@ -53,7 +80,14 @@ public class IrcTest : MonoBehaviour {
             string message = IRCHandler.ReadSocket(socket);
             if (message.Trim().Length > 1)
             {
-                print(message);
+                if (message.Equals("PING :tmi.twitch.tv"))
+                {
+                    IRCHandler.SendSocket(socket, "PONG :tmi.twitch.tv\n");
+                }
+                else
+                {
+                    while (lockList) { }
+                }
             }
             yield return null;
         } while (true);
