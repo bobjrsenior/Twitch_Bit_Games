@@ -69,7 +69,9 @@ public class IRCHandler {
 
             return message;
         }
-        
+
+        if (socket.Available == 0) { return ""; }
+
         Byte[] bytes = new Byte[512];
 
         int numBytes;
@@ -77,8 +79,8 @@ public class IRCHandler {
         do { 
             numBytes = socket.Receive(bytes, bytes.Length, 0);
            
-            message += System.Text.Encoding.ASCII.GetString(bytes);
-        } while (!message.Contains("\n") || numBytes == 0);
+            message += System.Text.Encoding.ASCII.GetString(bytes, 0, numBytes);
+        } while (!message.Contains("\n") && numBytes != 0 && socket.Connected && socket.Available > 0);
 
         string[] messageSplit = message.Split('\n');
         string returnMessage = messageSplit[0];

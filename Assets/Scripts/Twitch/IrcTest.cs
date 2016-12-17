@@ -21,7 +21,7 @@ public class IrcTest : MonoBehaviour {
 
         sockThread = new Thread(new ThreadStart(StartSocket));
         sockThread.Start();
-
+        //StartCoroutine(StartSocketCoRoutine());
 	}
 	
 	// Update is called once per frame
@@ -30,7 +30,6 @@ public class IrcTest : MonoBehaviour {
         {
             continueSock = false;
             sockThread.Abort();
-
         }
 
         if (!lockList)
@@ -46,6 +45,9 @@ public class IrcTest : MonoBehaviour {
 
     }
 
+    /// <summary>
+    /// Threaded Version
+    /// </summary>
     private void StartSocket()
     {
         socket = IRCHandler.ConnectToTwitch("irc.chat.twitch.tv", 6667, "botjrsenior", "oauth:");
@@ -57,7 +59,7 @@ public class IrcTest : MonoBehaviour {
             counter++;
 
             string message = IRCHandler.ReadSocket(socket);
-            if (message.Trim().Length > 0)
+            if (message.Trim().Length > 1)
             {
                 while (lockList) { Thread.Sleep(10); }
                 lockList = true;
@@ -66,42 +68,41 @@ public class IrcTest : MonoBehaviour {
             }
             Thread.Sleep(100);
 
-        } while (continueSock);
+        } while (continueSock && socket.Connected);
 
 
         socket.Close();
     }
 
-    IEnumerator ContinuousRead(Socket socket)
+    /// <summary>
+    /// Coroutine Version
+    /// </summary>
+    /// <returns></returns>
+    IEnumerator StartSocketCoRoutine()
     {
-        
+        socket = IRCHandler.ConnectToTwitch("irc.chat.twitch.tv", 6667, "botjrsenior", "oauth:");
+        yield return null;
+        IRCHandler.SendSocket(socket, "JOIN #botjrsenior\n");
+        yield return null;
+
+        int counter = 0;
+
         do
         {
+            counter++;
             string message = IRCHandler.ReadSocket(socket);
             if (message.Trim().Length > 1)
             {
-                if (message.Equals("PING :tmi.twitch.tv"))
-                {
-                    IRCHandler.SendSocket(socket, "PONG :tmi.twitch.tv\n");
-                }
-                else
-                {
-                    while (lockList) { }
-                }
+                while (lockList) { yield return new WaitForSeconds(0.01f); }
+                lockList = true;
+                messages.Add(message);
+                lockList = false;
             }
-            yield return null;
-        } while (true);
+            yield return new WaitForSeconds(.1f);
+        } while (continueSock && socket.Connected);
+
+
+        socket.Close();
     }
 
-    IEnumerator CheckDone(Thread thread)
-    {
-
-        do
-        {
-            
-            yield return null;
-        } while (thread.IsAlive);
-
-        thread.Join();
-    }
 }
